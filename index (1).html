@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Inventaris IT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/lucide.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        .card {
+            @apply bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm;
+        }
+        .btn-primary {
+            @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors;
+        }
+        .btn-outline {
+            @apply border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-md transition-colors;
+        }
+        .badge-ok {
+            @apply bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium;
+        }
+        .badge-rusak {
+            @apply bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium;
+        }
+        .badge-open {
+            @apply bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-medium;
+        }
+        .modal {
+            @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50;
+        }
+        .modal-content {
+            @apply bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto;
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h1 class="text-4xl font-bold text-gray-900 mb-2">Data Inventaris IT</h1>
+                    <p class="text-gray-600 text-lg">Kelola dan pantau semua perangkat IT perusahaan</p>
+                </div>
+                <button onclick="openAddModal()" class="btn-primary flex items-center gap-2">
+                    <i data-lucide="plus" class="h-4 w-4"></i>
+                    Tambah Item
+                </button>
+            </div>
+
+            <!-- Filter Section -->
+            <div class="card p-6 space-y-4">
+                <h2 class="text-lg font-semibold mb-4">Filter & Pencarian</h2>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="relative">
+                        <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4"></i>
+                        <input 
+                            type="text" 
+                            id="searchInput"
+                            placeholder="Cari nama, kode, atau brand..."
+                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            oninput="filterItems()"
+                        >
+                    </div>
+
+                    <select id="categoryFilter" onchange="filterItems()" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                        <option value="all">Semua Kategori</option>
+                    </select>
+
+                    <select id="locationFilter" onchange="filterItems()" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                        <option value="all">Semua Lokasi</option>
+                    </select>
+
+                    <button onclick="resetFilters()" class="btn-outline">
+                        Reset Filter
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Count -->
+        <div class="mb-6">
+            <p id="resultsCount" class="text-gray-600"></p>
+        </div>
+
+        <!-- Items Grid -->
+        <div id="itemsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Items will be populated by JavaScript -->
+        </div>
+
+        <!-- No Results Message -->
+        <div id="noResults" class="text-center py-12 hidden">
+            <p class="text-gray-500 text-lg">Tidak ada item yang sesuai dengan filter yang dipilih</p>
+        </div>
+
+        <!-- Total Count -->
+        <div class="mt-12 text-center">
+            <p id="totalCount" class="text-gray-500"></p>
+        </div>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div id="itemModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modalTitle" class="text-xl font-semibold">Tambah Item Baru</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="h-6 w-6"></i>
+                </button>
+            </div>
+            
+            <form id="itemForm" onsubmit="saveItem(event)">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Kode Inventaris</label>
+                        <input type="text" id="itemId" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nama Item</label>
+                        <input type="text" id="itemName" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
+                        <select id="itemCategory" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                            <option value="">Pilih Kategori</option>
+                            <option value="Kamera & Accessories">Kamera & Accessories</option>
+                            <option value="CPU">CPU</option>
+                            <option value="Laptop">Laptop</option>
+                            <option value="Finger Print">Finger Print</option>
+                            <option value="Flashdisk & Harddisk Ext">Flashdisk & Harddisk Ext</option>
+                            <option value="TV LCD">TV LCD</option>
+                            <option value="Microphone">Microphone</option>
+                            <option value="Modem">Modem</option>
+                            <option value="Monitor">Monitor</option>
+                            <option value="PABX">PABX</option>
+                            <option value="Printer">Printer</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Brand</label>
+                        <input type="text" id="itemBrand" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                        <input type="text" id="itemModel" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Serial Number</label>
+                        <input type="text" id="itemSerial" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Harga</label>
+                        <input type="text" id="itemPrice" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Lokasi</label>
+                        <select id="itemLocation" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                            <option value="">Pilih Lokasi</option>
+                            <option value="KLASEMAN">KLASEMAN</option>
+                            <option value="GITO-GATI">GITO-GATI</option>
+                            <option value="RUKO">RUKO</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Ruangan</label>
+                        <input type="text" id="itemRoom" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Pembelian</label>
+                        <input type="date" id="itemPurchaseDate" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select id="itemStatus" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                            <option value="OK">OK</option>
+                            <option value="RUSAK">RUSAK</option>
+                            <option value="HILANG">HILANG</option>
+                            <option value="Open">Open</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Deskripsi</label>
+                        <input type="text" id="itemDescription" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Spesifikasi</label>
+                        <textarea id="itemSpecifications" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end gap-3 mt-6">
+                    <button type="button" onclick="closeModal()" class="btn-outline">Batal</button>
+                    <button type="submit" class="btn-primary">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div id="detailModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold">Detail Item</h3>
+                <button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="h-6 w-6"></i>
+                </button>
+            </div>
+            <div id="detailContent">
+                <!-- Detail content will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="modal hidden">
+        <div class="modal-content max-w-md">
+            <div class="text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                    <i data-lucide="trash-2" class="h-6 w-6 text-red-600"></i>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Hapus Item</h3>
+                <p class="text-sm text-gray-500 mb-4">Apakah Anda yakin ingin menghapus item ini? Tindakan ini tidak dapat dibatalkan.</p>
+                <div class="flex justify-center gap-3">
+                    <button onclick="closeDeleteModal()" class="btn-outline">Batal</button>
+                    <button onclick="confirmDelete()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md">Hapus</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let inventoryData = [
+            {
+                id: "4010012020",
+                name: "Zhiyun Gimbal Crane M2",
+                category: "Kamera & Accessories",
+                brand: "Zhiyun",
+                model: "Gimbal Crane M2",
+                serialNumber: "NONE",
+                price: "Rp 2.770.000",
+                location: "KLASEMAN",
+                room: "Ruang IT & Multimedia",
+                purchaseDate: "01 Jan 2020",
+                status: "OK",
+                description: "Gimbal stabilizer untuk kamera",
+                specifications: "Warna: Abu-abu",
+                image: "sony-a6400-camera.jpg"
+            },
+            {
+                id: "4010012022",
+                name: "Sony A6400",
+                category: "Kamera & Accessories",
+                brand: "Sony",
+                model: "A6400",
+                serialNumber: "4575353 K/G C1AE-DJJJC-AABA-00027",
+                price: "Rp 13.000.000",
+                location: "KLASEMAN",
+                room: "Ruang IT & Multimedia",
+                purchaseDate: "20 Jan 2022",
+                status: "OK",
+                description: "Kamera digital profesional untuk dokumentasi",
+                specifications: "Resolution: 4K (24,2 MP), Display: LCD 1800 (7,5 cm TFT), Weight: 1,5 kg, Warna: Hitam",
+                image: "sony-a6400-camera.jpg"
+            },
+        ];
+
+        let currentEditId = null;
+        let deleteItemId = null;
+
+        function init() {
+            populateFilters();
+            renderItems();
+            lucide.createIcons();
+        }
+
+        function populateFilters() {
+            const categories = [...new Set(inventoryData.map(item => item.category))].sort();
+            const locations = [...new Set(inventoryData.map(item => item.location))].sort();
+            
+            const categorySelect = document.getElementById('categoryFilter');
+            const locationSelect = document.getElementById('locationFilter');
+            
+            categories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category;
+                option.textContent = category;
+                categorySelect.appendChild(option);
+            });
+            
+            locations.forEach(location => {
+                const option = document.createElement('option');
+                option.value = location;
+                option.textContent = location;
+                locationSelect.appendChild(option);
+            });
+        }
+
+        function filterItems() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const categoryFilter = document.getElementById('categoryFilter').value;
+            const locationFilter = document.getElementById('locationFilter').value;
+            
+            const filteredData = inventoryData.filter(item => {
+                const matchesSearch = searchTerm === '' ||
+                    item.name.toLowerCase().includes(searchTerm) ||
+                    item.id.toLowerCase().includes(searchTerm) ||
+                    item.brand.toLowerCase().includes(searchTerm) ||
+                    item.model.toLowerCase().includes(searchTerm);
+                
+                const matchesCategory = categoryFilter === 'all' || item.category === categoryFilter;
+                const matchesLocation = locationFilter === 'all' || item.location === locationFilter;
+                
+                return matchesSearch && matchesCategory && matchesLocation;
+            });
+            
+            renderItems(filteredData);
+        }
+
+        function renderItems(data = inventoryData) {
+            const grid = document.getElementById('itemsGrid');
+            const noResults = document.getElementById('noResults');
+            const resultsCount = document.getElementById('resultsCount');
+            const totalCount = document.getElementById('totalCount');
+            
+            resultsCount.textContent = `Menampilkan ${data.length} dari ${inventoryData.length} item`;
+            totalCount.textContent = `Total ${inventoryData.length} perangkat terdaftar`;
+            
+            if (data.length === 0) {
+                grid.innerHTML = '';
+                noResults.classList.remove('hidden');
+                return;
+            }
+            
+            noResults.classList.add('hidden');
+            
+            grid.innerHTML = data.map(item => `
+                <div class="card hover:shadow-lg transition-shadow duration-200">
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="p-2 bg-blue-100 rounded-lg">
+                                    <i data-lucide="${getIconName(item.category)}" class="h-6 w-6 text-blue-600"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-semibold">${item.name}</h3>
+                                    <p class="text-sm text-gray-600">${item.brand}</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <p class="text-sm text-gray-600 mb-4">${item.description}</p>
+                        
+                        <div class="space-y-2 mb-4">
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-500">Kode:</span>
+                                <span class="font-mono">${item.id}</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-500">Lokasi:</span>
+                                <span>${item.room}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="badge-${item.status.toLowerCase()}">${item.status}</span>
+                            <span class="text-sm font-medium text-blue-600">${item.price}</span>
+                        </div>
+                        
+                        <div class="flex gap-2">
+                            <button onclick="viewDetail('${item.id}')" class="flex-1 btn-outline text-sm">
+                                Lihat Detail
+                            </button>
+                            <button onclick="editItem('${item.id}')" class="btn-outline text-sm">
+                                <i data-lucide="edit" class="h-4 w-4"></i>
+                            </button>
+                            <button onclick="deleteItem('${item.id}')" class="text-red-600 hover:bg-red-50 px-2 py-1 rounded">
+                                <i data-lucide="trash-2" class="h-4 w-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            lucide.createIcons();
+        }
+
+        function getIconName(category) {
+            const iconMap = {
+                'Kamera & Accessories': 'camera',
+                'CPU': 'cpu',
+                'Laptop': 'laptop',
+                'Finger Print': 'fingerprint',
+                'Flashdisk & Harddisk Ext': 'hard-drive',
+                'TV LCD': 'tv',
+                'Microphone': 'mic',
+                'Modem': 'router',
+                'Monitor': 'monitor',
+                'PABX': 'phone',
+                'Printer': 'printer'
+            };
+            return iconMap[category] || 'box';
+        }
+
+        function openAddModal() {
+            currentEditId = null;
+            document.getElementById('modalTitle').textContent = 'Tambah Item Baru';
+            document.getElementById('itemForm').reset();
+            document.getElementById('itemModal').classList.remove('hidden');
+        }
+
+        function editItem(id) {
+            const item = inventoryData.find(i => i.id === id);
+            if (!item) return;
+            
+            currentEditId = id;
+            document.getElementById('modalTitle').textContent = 'Edit Item';
+            
+            // Populate form with item data
+            document.getElementById('itemId').value = item.id;
+            document.getElementById('itemName').value = item.name;
+            document.getElementById('itemCategory').value = item.category;
+            document.getElementById('itemBrand').value = item.brand;
+            document.getElementById('itemModel').value = item.model;
+            document.getElementById('itemSerial').value = item.serialNumber;
+            document.getElementById('itemPrice').value = item.price;
+            document.getElementById('itemLocation').value = item.location;
+            document.getElementById('itemRoom').value = item.room;
+            document.getElementById('itemPurchaseDate').value = formatDateForInput(item.purchaseDate);
+            document.getElementById('itemStatus').value = item.status;
+            document.getElementById('itemDescription').value = item.description;
+            document.getElementById('itemSpecifications').value = item.specifications;
+            
+            document.getElementById('itemModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('itemModal').classList.add('hidden');
+        }
+
+        function saveItem(event) {
+            event.preventDefault();
+            
+            const formData = {
+                id: document.getElementById('itemId').value,
+                name: document.getElementById('itemName').value,
+                category: document.getElementById('itemCategory').value,
+                brand: document.getElementById('itemBrand').value,
+                model: document.getElementById('itemModel').value,
+                serialNumber: document.getElementById('itemSerial').value,
+                price: document.getElementById('itemPrice').value,
+                location: document.getElementById('itemLocation').value,
+                room: document.getElementById('itemRoom').value,
+                purchaseDate: formatDateForDisplay(document.getElementById('itemPurchaseDate').value),
+                status: document.getElementById('itemStatus').value,
+                description: document.getElementById('itemDescription').value,
+                specifications: document.getElementById('itemSpecifications').value,
+                image: getDefaultImage(document.getElementById('itemCategory').value)
+            };
+            
+            if (currentEditId) {
+                // Edit existing item
+                const index = inventoryData.findIndex(item => item.id === currentEditId);
+                if (index !== -1) {
+                    inventoryData[index] = formData;
+                }
+            } else {
+                // Add new item
+                inventoryData.push(formData);
+            }
+            
+            closeModal();
+            populateFilters();
+            filterItems();
+            
+            alert(currentEditId ? 'Item berhasil diperbarui!' : 'Item berhasil ditambahkan!');
+        }
+
+        function viewDetail(id) {
+            const item = inventoryData.find(i => i.id === id);
+            if (!item) return;
+            
+            const detailContent = document.getElementById('detailContent');
+            detailContent.innerHTML = `
+                <div class="space-y-6">
+                    <div class="flex items-center space-x-4">
+                        <div class="p-3 bg-blue-100 rounded-lg">
+                            <i data-lucide="${getIconName(item.category)}" class="h-8 w-8 text-blue-600"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-2xl font-bold">${item.name}</h2>
+                            <p class="text-gray-600">${item.brand} - ${item.model}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <div>
+                                <h3 class="font-semibold text-gray-900 mb-2">Informasi Dasar</h3>
+                                <div class="space-y-2 text-sm">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-500">Kode Inventaris:</span>
+                                        <span class="font-mono">${item.id}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-500">Kategori:</span>
+                                        <span>${item.category}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-500">Serial Number:</span>
+                                        <span class="font-mono">${item.serialNumber}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-500">Harga:</span>
+                                        <span class="font-semibold text-blue-600">${item.price}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h3 class="font-semibold text-gray-900 mb-2">Lokasi & Status</h3>
+                                <div class="space-y-2 text-sm">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-500">Lokasi:</span>
+                                        <span>${item.location}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-500">Ruangan:</span>
+                                        <span>${item.room}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-500">Tanggal Pembelian:</span>
+                                        <span>${item.purchaseDate}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-500">Status:</span>
+                                        <span class="badge-${item.status.toLowerCase()}">${item.status}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <h3 class="font-semibold text-gray-900 mb-2">Deskripsi</h3>
+                                <p class="text-sm text-gray-600">${item.description}</p>
+                            </div>
+                            
+                            <div>
+                                <h3 class="font-semibold text-gray-900 mb-2">Spesifikasi</h3>
+                                <p class="text-sm text-gray-600">${item.specifications}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end gap-3 pt-4 border-t">
+                        <button onclick="editItem('${item.id}'); closeDetailModal();" class="btn-outline">
+                            <i data-lucide="edit" class="h-4 w-4 mr-2"></i>
+                            Edit
+                        </button>
+                        <button onclick="deleteItem('${item.id}'); closeDetailModal();" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md">
+                            <i data-lucide="trash-2" class="h-4 w-4 mr-2"></i>
+                            Hapus
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('detailModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeDetailModal() {
+            document.getElementById('detailModal').classList.add('hidden');
+        }
+
+        function deleteItem(id) {
+            deleteItemId = id;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+            deleteItemId = null;
+        }
+
+        function confirmDelete() {
+            if (deleteItemId) {
+                inventoryData = inventoryData.filter(item => item.id !== deleteItemId);
+                closeDeleteModal();
+                populateFilters();
+                filterItems();
+                alert('Item berhasil dihapus!');
+            }
+        }
+
+        function resetFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('categoryFilter').value = 'all';
+            document.getElementById('locationFilter').value = 'all';
+            filterItems();
+        }
+
+        function formatDateForInput(dateString) {
+            // Convert "01 Jan 2020" to "2020-01-01"
+            const months = {
+                'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
+                'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
+                'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
+            };
+            
+            const parts = dateString.split(' ');
+            if (parts.length === 3) {
+                const day = parts[0].padStart(2, '0');
+                const month = months[parts[1]] || '01';
+                const year = parts[2];
+                return `${year}-${month}-${day}`;
+            }
+            return '';
+        }
+
+        function formatDateForDisplay(dateString) {
+            // Convert "2020-01-01" to "01 Jan 2020"
+            const months = [
+                'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+            ];
+            
+            const date = new Date(dateString);
+            const day = date.getDate().toString().padStart(2, '0');
+            const month = months[date.getMonth()];
+            const year = date.getFullYear();
+            
+            return `${day} ${month} ${year}`;
+        }
+
+        function getDefaultImage(category) {
+            const imageMap = {
+                'Kamera & Accessories': 'sony-a6400-camera.jpg',
+                'CPU': 'msi-gaming-desktop-computer.jpg',
+                'Laptop': 'dell-laptop-computer.jpg',
+                'Finger Print': 'fingerprint-scanner-device.jpg',
+                'Flashdisk & Harddisk Ext': 'external-hard-drive-storage.jpg',
+                'TV LCD': 'sony-a6400-camera.jpg',
+                'Microphone': 'sony-a6400-camera.jpg',
+                'Modem': 'sony-a6400-camera.jpg',
+                'Monitor': 'sony-a6400-camera.jpg',
+                'PABX': 'sony-a6400-camera.jpg',
+                'Printer': 'sony-a6400-camera.jpg'
+            };
+            return imageMap[category] || 'sony-a6400-camera.jpg';
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
